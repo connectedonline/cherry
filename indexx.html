@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>SeaLion 26 Cherry</title>
+<style>
+    body {
+        font-family: "Inter", sans-serif;
+        margin: 0;
+        padding: 20px;
+
+        /* 🌈 Pastel gradient achtergrond */
+        background: linear-gradient(
+            135deg,
+            #ffe4ec 0%,
+            #f3e7ff 40%,
+            #e3f0ff 100%
+        );
+        background-attachment: fixed;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #4a4a4a;
+        font-size: 2rem;
+    }
+
+    /* 🍒 Cherry Red kleur */
+    :root {
+        --cherry: #d6455d;
+        --cherry-dark: #b8374c;
+    }
+
+    #controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    button {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        background: var(--cherry);
+        color: white;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: 0.2s;
+    }
+
+    button:hover {
+        background: var(--cherry-dark);
+    }
+
+    #importFile {
+        display: none;
+    }
+
+    #board {
+        width: 100%;
+        min-height: 80vh;
+
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(6px);
+
+        border-radius: 16px;
+        padding: 20px;
+
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    .card {
+        background: white;
+        padding: 20px;
+        border-radius: 14px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+        /* 🍒 Cherry Red accent */
+        border-left: 6px solid var(--cherry);
+    }
+
+    h2 {
+        margin-top: 0;
+        font-size: 1.2rem;
+        color: #4a4a4a;
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 10px;
+        margin-top: 8px;
+        border-radius: 10px;
+        border: 1px solid #d0d7e2;
+        background: #f9fbff;
+        font-size: 1rem;
+    }
+
+    textarea {
+        height: 80px;
+        resize: vertical;
+    }
+
+    .progress {
+        height: 20px;
+        background: #e3e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        width: 0%;
+
+        /* 🍒 Cherry Red progress bar */
+        background: linear-gradient(90deg, var(--cherry), var(--cherry-dark));
+        transition: width 0.4s ease;
+    }
+</style>
+</head>
+<body>
+
+<h1>SeaLion 26 Cherry</h1>
+
+<div id="controls">
+    <button onclick="exportCherry()">Exporteren (.cherry)</button>
+
+    <!-- ✔ FIXED IMPORT BUTTON -->
+    <button onclick="document.getElementById('importFile').click()">Importeren (.cherry)</button>
+    <input type="file" id="importFile" accept=".cherry" onchange="importCherry(event)">
+</div>
+
+<div id="board">
+
+    <div class="card">
+        <h2>Belangrijkste 3 taken</h2>
+        <input id="task1" placeholder="Taak 1">
+        <input id="task2" placeholder="Taak 2">
+        <input id="task3" placeholder="Taak 3">
+    </div>
+
+    <div class="card">
+        <h2>Energiegevers</h2>
+        <textarea id="energyPlus" placeholder="Wat gaf je energie?"></textarea>
+    </div>
+
+    <div class="card">
+        <h2>Energievreters</h2>
+        <textarea id="energyMin" placeholder="Wat kostte je energie?"></textarea>
+    </div>
+
+    <div class="card">
+        <h2>Dankbaarheid (3 dingen)</h2>
+        <input id="gr1" placeholder="1.">
+        <input id="gr2" placeholder="2.">
+        <input id="gr3" placeholder="3.">
+    </div>
+
+    <div class="card" style="grid-column: span 2;">
+        <h2>Reflectie van de dag</h2>
+        <textarea id="reflection" placeholder="Hoe was je dag?"></textarea>
+
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    /* ------------------------------
+       MIDNIGHT RESET
+    ------------------------------ */
+    function today() {
+        return new Date().toISOString().split("T")[0];
+    }
+
+    let saved = JSON.parse(localStorage.getItem("lifePrikbord") || "{}");
+
+    if (!saved.lastDate || saved.lastDate !== today()) {
+        localStorage.setItem("lifePrikbord", JSON.stringify({
+            lastDate: today(),
+            data: {}
+        }));
+        saved = { lastDate: today(), data: {} };
+    }
+
+    /* ------------------------------
+       DATA STRUCTUUR
+    ------------------------------ */
+    const fields = [
+        "task1", "task2", "task3",
+        "energyPlus", "energyMin",
+        "gr1", "gr2", "gr3",
+        "reflection"
+    ];
+
+    const data = saved.data;
+
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (data[id]) el.value = data[id];
+
+        el.addEventListener("input", () => {
+            data[id] = el.value;
+            save();
+            updateProgress();
+        });
+    });
+
+    function save() {
+        localStorage.setItem("lifePrikbord", JSON.stringify({
+            lastDate: today(),
+            data
+        }));
+    }
+
+    /* ------------------------------
+       PROGRESS BAR
+    ------------------------------ */
+    function updateProgress() {
+        let filled = 0;
+        fields.forEach(id => {
+            if (document.getElementById(id).value.trim() !== "") filled++;
+        });
+        const percent = Math.round((filled / fields.length) * 100);
+        document.getElementById("progressBar").style.width = percent + "%";
+    }
+
+    updateProgress();
+
+    /* ------------------------------
+       EXPORT
+    ------------------------------ */
+    function exportCherry() {
+        const blob = new Blob(
+            [JSON.stringify(data, null, 2)],
+            { type: "application/json" }
+        );
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = today() + ".cherry";
+        a.click();
+
+        URL.revokeObjectURL(url);
+    }
+
+    /* ------------------------------
+       IMPORT (FIXED)
+    ------------------------------ */
+    function importCherry(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const imported = JSON.parse(e.target.result);
+
+                fields.forEach(id => {
+                    data[id] = imported[id] || "";
+                    document.getElementById(id).value = data[id];
+                });
+
+                save();
+                updateProgress();
+
+            } catch {
+                alert("Ongeldig .cherry bestand");
+            }
+        };
+
+        reader.readAsText(file);
+    }
+</script>
+
+</body>
+</html>
